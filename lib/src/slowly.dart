@@ -7,12 +7,17 @@ enum SlowlyTp { debounce, throttle }
 
 ///
 class Slowly<T> {
-  final Throttle<T> _throttle;
-  final Debounce<T> _debounce;
+  Throttle<T>? _throttle;
+
+  Throttle<T> get throttle => _throttle ??= Throttle<T>();
+
+  Debounce<T>? _debounce;
+
+  Debounce<T> get debounce => _debounce ??= Debounce<T>();
 
   Slowly({Throttle<T>? throttle, Debounce<T>? debounce})
-      : _throttle = throttle ?? Throttle<T>(),
-        _debounce = debounce ?? Debounce<T>();
+      : _throttle = throttle,
+        _debounce = debounce;
 
   /// debounce, 500ms
   bool ms(
@@ -20,7 +25,7 @@ class Slowly<T> {
     SlowlyTp tp = SlowlyTp.debounce,
     int ms = 500,
   }) =>
-      duration(Duration(milliseconds: ms), tag, tp);
+      duration(tag, tp, Duration(milliseconds: ms));
 
   /// throttle, 5s
   bool seconds(
@@ -28,14 +33,14 @@ class Slowly<T> {
     SlowlyTp tp = SlowlyTp.throttle,
     int sec = 5,
   }) =>
-      duration(Duration(seconds: sec), tag, tp);
+      duration(tag, tp, Duration(seconds: sec));
 
-  bool duration(Duration duration, T tag, SlowlyTp tp) {
+  bool duration(T tag, SlowlyTp tp, Duration duration) {
     switch (tp) {
       case SlowlyTp.debounce:
-        return _debounce.duration(duration, tag);
+        return debounce.duration(duration, tag);
       case SlowlyTp.throttle:
-        return _throttle.duration(duration, tag);
+        return throttle.duration(duration, tag);
     }
   }
 }

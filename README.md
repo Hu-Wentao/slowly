@@ -13,15 +13,15 @@
 ```dart
 import 'package:slowly/slowly.dart';
 
-final _globalSlowly = Slowly<String>();
+final sly = Slowly<String>();
 
 /// debounce
-bool access1 = _globalSlowly.duration(const Duration(milliseconds: 100), 'foo', SlowlyTp.debounce);
-//  _globalSlowly.ms('foo', ms: 100, tp: SlowlyTp.debounce);
-//  _globalSlowly.seconds('foo', sec: 1, tp: SlowlyTp.debounce);
+bool access1 = sly.duration('foo', SlowlyTp.debounce, const Duration(milliseconds: 100));
+bool access2 = sly.ms('foo', ms: 100, tp: SlowlyTp.debounce);
+bool access3 = sly.seconds('foo', sec: 1, tp: SlowlyTp.debounce);
 
 /// throttle
-bool access2 = _globalSlowly.duration(const Duration(milliseconds: 100), 'foo', SlowlyTp.throttle);
+bool access4 = sly.duration('foo', SlowlyTp.throttle, const Duration(milliseconds: 100));
 
 ```
 

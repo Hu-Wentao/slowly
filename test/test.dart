@@ -36,7 +36,7 @@ main() {
 }
 
 String? fooWithSlowly(SlowlyTp tp) =>
-    _globalSlowly.duration(const Duration(milliseconds: 100), 'foo', tp)
+    _globalSlowly.duration('foo', tp, const Duration(milliseconds: 100))
         ? foo()
         : null;
 
