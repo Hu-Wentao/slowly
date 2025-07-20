@@ -21,7 +21,7 @@ main() {
 }
 
 String? fooWithDebounce() =>
-    _globalDebounce.duration(const Duration(milliseconds: 100), 'foo')
+    _globalDebounce.duration('foo', duration: const Duration(milliseconds: 100))
         ? foo()
         : null;
 

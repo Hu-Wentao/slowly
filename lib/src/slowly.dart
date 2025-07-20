@@ -38,9 +38,9 @@ class Slowly<T> {
   bool duration(T tag, SlowlyTp tp, Duration duration) {
     switch (tp) {
       case SlowlyTp.debounce:
-        return debounce.duration(duration, tag);
+        return debounce.duration(tag, duration: duration);
       case SlowlyTp.throttle:
-        return throttle.duration(duration, tag);
+        return throttle.duration(tag, duration: duration);
     }
   }
 }

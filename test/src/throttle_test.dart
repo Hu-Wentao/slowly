@@ -21,7 +21,7 @@ main() {
 }
 
 String? fooWithThrottle() =>
-    _globalThrottle.duration(const Duration(milliseconds: 100), 'foo')
+    _globalThrottle.duration('foo', duration: const Duration(milliseconds: 100))
         ? foo()
         : null;
 
