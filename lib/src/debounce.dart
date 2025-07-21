@@ -6,23 +6,23 @@ class Debounce<T> {
   Debounce({Map<T, Timer>? locked}) : _locked = locked ?? {};
   final Map<T, Timer> _locked;
 
+  bool isUnlock(T tag) => !(_locked[tag]?.isActive ?? false);
+
   ///
   /// [duration]
   ///   null: query [tag] is locked;
   ///   not null: query [tag], and set [tag] 's [duration] if
   /// return:
   ///   tag has locked
-  bool duration(T tag, {Duration? duration}) {
-    final timer = _locked[tag];
-    final timerLocked = timer?.isActive ?? false;
-
-    // query
-    if (timerLocked) return true;
-    if (duration == null) return timerLocked;
-
+  bool duration(T tag,
+      {required Duration duration, void Function()? callback}) {
+    if (isUnlock(tag)) return true;
     // set timer
-    if (timer != null) timer.cancel();
-    _locked[tag] = Timer(duration, () => _locked.remove(tag));
-    return false;
+    _locked[tag]?.cancel();
+    _locked[tag] = Timer(duration, () {
+      _locked.remove(tag);
+      callback?.call();
+    });
+    return isUnlock(tag);
   }
 }

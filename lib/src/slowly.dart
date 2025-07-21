@@ -35,12 +35,19 @@ class Slowly<T> {
   }) =>
       duration(tag, tp, Duration(seconds: sec));
 
-  bool duration(T tag, SlowlyTp tp, Duration duration) {
+  /// return
+  ///  bool: isUnlock
+  bool duration(
+    T tag,
+    SlowlyTp tp,
+    Duration duration, {
+    void Function()? callback,
+  }) {
     switch (tp) {
       case SlowlyTp.debounce:
-        return debounce.duration(tag, duration: duration);
+        return debounce.duration(tag, duration: duration, callback: callback);
       case SlowlyTp.throttle:
-        return throttle.duration(tag, duration: duration);
+        return throttle.duration(tag, duration: duration, callback: callback);
     }
   }
 }
