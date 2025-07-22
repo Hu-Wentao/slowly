@@ -1,15 +1,33 @@
 import 'package:slowly/slowly.dart';
 
-main() {
+main() async {
+  /// <String>: tag type
   final sly = Slowly<String>();
 
+  foo() {
+    print('foo func');
+    return 'foo!';
+  }
+
   /// debounce
-  bool access1 =
-      sly.duration('foo', SlowlyTp.debounce, const Duration(milliseconds: 100));
-  bool access2 = sly.ms('foo', ms: 100, tp: SlowlyTp.debounce);
-  bool access3 = sly.seconds('foo', sec: 1, tp: SlowlyTp.debounce);
+  /// need 'await'
+  final fnFoo = await sly.debounce(
+    'foo',
+    foo,
+    duration: const Duration(milliseconds: 100),
+  );
+  if (fnFoo == null) return; // if locked, fnFoo will be null
+  final r = fnFoo();
+  print('debounce result: $r');
 
   /// throttle
-  bool access4 =
-      sly.duration('foo', SlowlyTp.throttle, const Duration(milliseconds: 100));
+  /// not need 'await'
+  final fnFoo2 = sly.throttle(
+    'bar',
+    foo,
+    duration: const Duration(milliseconds: 100),
+  );
+  if (fnFoo2 == null) return; // if locked, fnFoo will be null
+  final r2 = fnFoo2();
+  print('throttle result: $r2');
 }

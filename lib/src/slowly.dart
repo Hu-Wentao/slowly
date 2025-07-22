@@ -1,53 +1,65 @@
+import 'dart:async';
 import 'dart:core';
-
-import 'package:slowly/src/debounce.dart';
-import 'package:slowly/src/throttle.dart';
-
-enum SlowlyTp { debounce, throttle }
 
 ///
 class Slowly<T> {
-  Throttle<T>? _throttle;
+  Map<T, MapEntry<Timer, Completer>>? __debounceLocked;
+  List<T>? __throttleLocked;
 
-  Throttle<T> get throttle => _throttle ??= Throttle<T>();
+  /// --------------------------------------------------------------------------
 
-  Debounce<T>? _debounce;
+  Map<T, MapEntry<Timer, Completer>> get _deLock => __debounceLocked ??= {};
 
-  Debounce<T> get debounce => _debounce ??= Debounce<T>();
+  void cancelDeLock(T tag) {
+    final lock = _deLock[tag];
+    if (lock == null) return;
 
-  Slowly({Throttle<T>? throttle, Debounce<T>? debounce})
-      : _throttle = throttle,
-        _debounce = debounce;
+    lock.key.cancel();
+    lock.value.complete(null);
+    _deLock.remove(tag);
+  }
 
-  /// debounce, 500ms
-  bool ms(
-    T tag, {
-    SlowlyTp tp = SlowlyTp.debounce,
-    int ms = 500,
-  }) =>
-      duration(tag, tp, Duration(milliseconds: ms));
-
-  /// throttle, 5s
-  bool seconds(
-    T tag, {
-    SlowlyTp tp = SlowlyTp.throttle,
-    int sec = 5,
-  }) =>
-      duration(tag, tp, Duration(seconds: sec));
-
-  /// return
-  ///  bool: isUnlock
-  bool duration(
+  Future<F?> debounce<F>(
     T tag,
-    SlowlyTp tp,
-    Duration duration, {
-    void Function()? callback,
+    F func, {
+    required Duration duration,
+  }) async {
+    cancelDeLock(tag);
+
+    final cm = Completer<F?>();
+    _deLock[tag] = MapEntry(
+      Timer(duration, () {
+        cm.complete(func);
+        _deLock.remove(tag);
+      }),
+      cm,
+    );
+    return cm.future;
+  }
+
+  /// --------------------------------------------------------------------------
+
+  List<T> get _thLock => __throttleLocked ??= [];
+
+  bool isThrottleLocked(T tag) => _thLock.contains(tag);
+
+  /// [duration] null: only check [tag]
+  F? throttle<F>(
+    T tag,
+    F func, {
+    required Duration duration,
   }) {
-    switch (tp) {
-      case SlowlyTp.debounce:
-        return debounce.duration(tag, duration: duration, callback: callback);
-      case SlowlyTp.throttle:
-        return throttle.duration(tag, duration: duration, callback: callback);
-    }
+    if (isThrottleLocked(tag)) return null;
+
+    _thLock.add(tag);
+    Timer(duration, () => _thLock.remove(tag));
+    return func;
+  }
+
+  void dispose() {
+    //
+    _deLock.keys.map(cancelDeLock);
+    //
+    _thLock.clear();
   }
 }
