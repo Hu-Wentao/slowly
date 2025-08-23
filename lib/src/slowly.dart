@@ -10,6 +10,7 @@ class Slowly<T> {
 
   Map<T, MapEntry<Timer, Completer>> get _deLock => __debounceLocked ??= {};
 
+  /// cancel debounce lock by [tag]
   void cancelDeLock(T tag) {
     final lock = _deLock[tag];
     if (lock == null) return;
@@ -19,6 +20,7 @@ class Slowly<T> {
     _deLock.remove(tag);
   }
 
+  /// debounce by [tag] with [func]
   Future<F?> debounce<F>(
     T tag,
     F func, {
@@ -41,6 +43,7 @@ class Slowly<T> {
 
   List<T> get _thLock => __throttleLocked ??= [];
 
+  /// is throttle locked by [tag]
   bool isThrottleLocked(T tag) => _thLock.contains(tag);
 
   /// [duration] null: only check [tag]
@@ -56,6 +59,7 @@ class Slowly<T> {
     return func;
   }
 
+  /// dispose all debounce/throttle
   void dispose() {
     //
     _deLock.keys.map(cancelDeLock);
