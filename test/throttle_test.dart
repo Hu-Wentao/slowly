@@ -3,13 +3,7 @@ import 'package:slowly/slowly.dart';
 
 main() {
   test('throttle', () async {
-    final sly = Slowly();
-    Future<F?> throttle<F extends Function>(
-      String tag,
-      F func, {
-      Duration duration = const Duration(milliseconds: 500),
-    }) async =>
-        sly.throttle(tag, func, duration: duration);
+    final sly = Slowly<String>();
 
     int rst = 0;
     foo(p) {
@@ -22,40 +16,64 @@ main() {
     print('${s} ## start');
     expect(rst, 0);
 
+    const duration = Duration(milliseconds: 500);
+
     /// ------
 
     // 0
-    throttle('tag', () => foo('00')).then((e) => e?.call());
-    expect(rst, 0);
+    sly.throttle('tag', () => foo('00'), duration: duration);
+    expect(rst, 1); // Leading edge
     await Future.delayed(const Duration(milliseconds: 100));
     expect(rst, 1);
     // 100-100
-    throttle('tag', () => foo('11')).then((e) => e?.call());
+    sly.throttle('tag', () => foo('11'), duration: duration);
     expect(rst, 1);
     // 200-0
     await Future.delayed(const Duration(milliseconds: 100));
     expect(rst, 1);
     // 200-100
-    throttle('tag', () => foo('22')).then((e) => e?.call());
+    sly.throttle('tag', () => foo('22'), duration: duration);
     expect(rst, 1);
-    // 200-0
 
     await Future.delayed(const Duration(milliseconds: 550));
     expect(rst, 1);
-    // 700-500: 22
 
     await Future.delayed(const Duration(milliseconds: 100));
     // 800-0
-    throttle('tag', () => foo('33')).then((e) => e?.call());
-    expect(rst, 1);
+    sly.throttle('tag', () => foo('33'), duration: duration);
+    expect(rst, 2);
     await Future.delayed(const Duration(milliseconds: 550));
     expect(rst, 2);
-    // 800-0
 
     /// ------
     final e = DateTime.now();
     print('${e} ## end; ${e.difference(s)}');
   });
-}
 
-/// de3 ok
+  test('throttle mutex overlap', () async {
+    final sly = Slowly<String>();
+    int rst = 0;
+    const duration = Duration(milliseconds: 200);
+
+    // Fast interval, slow task
+    sly.throttle('tag', () async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      rst++;
+    }, duration: duration);
+    
+    expect(rst, 0);
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    // duration (200) passed, but task is still running (500)
+    // throttle should skip because of mutex
+    sly.throttle('tag', () => rst++, duration: duration);
+    expect(rst, 0);
+
+    await Future.delayed(const Duration(milliseconds: 300)); // Total 600
+    expect(rst, 1);
+    
+    // Now it should be free
+    sly.throttle('tag', () => rst++, duration: duration);
+    expect(rst, 2);
+  });
+}

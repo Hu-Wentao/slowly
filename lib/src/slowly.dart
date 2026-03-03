@@ -1,65 +1,124 @@
 import 'dart:async';
-import 'dart:core';
 
-///
+/// A utility class for managing multiple debounce, throttle, and mutex instances.
 class Slowly<T> {
-  Map<T, MapEntry<Timer, Completer>>? __debounceLocked;
-  List<T>? __throttleLocked;
+  final Map<T, Timer> _deTimers = {};
+  final Map<T, Completer<dynamic>> _deCompleters = {};
+  final Map<T, DateTime> _deFirstCalls = {};
 
-  /// --------------------------------------------------------------------------
+  final Map<T, Timer> _thTimers = {};
+  final Set<T> _mxLocks = {};
 
-  Map<T, MapEntry<Timer, Completer>> get _deLock => __debounceLocked ??= {};
-
-  void cancelDeLock(T tag) {
-    final lock = _deLock[tag];
-    if (lock == null) return;
-
-    lock.key.cancel();
-    lock.value.complete(null);
-    _deLock.remove(tag);
+  /// [mutex] 互斥锁 (Exhaust): 立即执行，执行期间的触发直接丢弃。
+  /// 解决异步任务重叠问题。
+  Future<R?> mutex<R>(T tag, FutureOr<R> Function() action) async {
+    if (_mxLocks.contains(tag)) return null;
+    _mxLocks.add(tag);
+    try {
+      final result = action();
+      if (result is Future<R>) {
+        return await result;
+      }
+      return result;
+    } finally {
+      _mxLocks.remove(tag);
+    }
   }
 
-  Future<F?> debounce<F>(
+  /// [debounce] 防抖: 停止操作后等待 [duration] 执行最后一次。
+  /// [maxDuration]: 可选，解决“无限重置”问题。如果持续触发超过此时间，强制执行一次。
+  Future<R?> debounce<R>(
     T tag,
-    F func, {
+    FutureOr<R> Function() action, {
     required Duration duration,
-  }) async {
-    cancelDeLock(tag);
-
-    final cm = Completer<F?>();
-    _deLock[tag] = MapEntry(
-      Timer(duration, () {
-        cm.complete(func);
-        _deLock.remove(tag);
-      }),
-      cm,
-    );
-    return cm.future;
-  }
-
-  /// --------------------------------------------------------------------------
-
-  List<T> get _thLock => __throttleLocked ??= [];
-
-  bool isThrottleLocked(T tag) => _thLock.contains(tag);
-
-  /// [duration] null: only check [tag]
-  F? throttle<F>(
-    T tag,
-    F func, {
-    required Duration duration,
+    Duration? maxDuration,
   }) {
-    if (isThrottleLocked(tag)) return null;
+    _deTimers[tag]?.cancel();
 
-    _thLock.add(tag);
-    Timer(duration, () => _thLock.remove(tag));
-    return func;
+    final now = DateTime.now();
+    _deFirstCalls[tag] ??= now;
+    final firstCall = _deFirstCalls[tag]!;
+
+    final completer = _deCompleters[tag] ??= Completer<R?>();
+
+    void execute() async {
+      _deTimers.remove(tag)?.cancel();
+      _deFirstCalls.remove(tag);
+      final cm = _deCompleters.remove(tag);
+      if (cm != null && !cm.isCompleted) {
+        cm.complete(await mutex(tag, action));
+      }
+    }
+
+    final diff = now.difference(firstCall);
+    if (maxDuration != null && diff >= maxDuration) {
+      execute();
+    } else {
+      var nextDuration = duration;
+      if (maxDuration != null) {
+        final remainingMax = maxDuration - diff;
+        if (remainingMax < nextDuration) {
+          nextDuration = remainingMax;
+        }
+      }
+      _deTimers[tag] = Timer(nextDuration, execute);
+    }
+
+    return completer.future as Future<R?>;
   }
 
+  /// [throttle] 节流: 固定频率执行。
+  /// 配合 [mutex] 解决异步任务重叠问题：如果周期到了但上次任务还没跑完，跳过。
+  Future<R?> throttle<R>(
+    T tag,
+    FutureOr<R> Function() action, {
+    required Duration duration,
+    bool ensureLast = false,
+  }) async {
+    if (_thTimers.containsKey(tag) || _mxLocks.contains(tag)) {
+      if (ensureLast) {
+        return debounce(tag, action, duration: duration);
+      }
+      return null;
+    }
+
+    _thTimers[tag] = Timer(duration, () => _thTimers.remove(tag));
+    return mutex(tag, action);
+  }
+
+  /// 检查是否正在执行 mutex 任务
+  bool isMutexLocked(T tag) => _mxLocks.contains(tag);
+
+  /// 检查是否正在防抖等待中
+  bool isDebounceLocked(T tag) => _deTimers.containsKey(tag);
+
+  /// 检查是否处于节流冷却期
+  bool isThrottleLocked(T tag) => _thTimers.containsKey(tag);
+
+  /// 取消特定 tag 的防抖
+  void cancelDebounce(T tag) {
+    _deTimers[tag]?.cancel();
+    _deTimers.remove(tag);
+    _deFirstCalls.remove(tag);
+    if (_deCompleters[tag]?.isCompleted == false) {
+      _deCompleters[tag]?.complete(null);
+    }
+    _deCompleters.remove(tag);
+  }
+
+  /// 释放所有资源
   void dispose() {
-    //
-    _deLock.keys.map(cancelDeLock);
-    //
-    _thLock.clear();
+    for (var t in _deTimers.values) {
+      t.cancel();
+    }
+    _deTimers.clear();
+    _deCompleters.clear();
+    _deFirstCalls.clear();
+
+    for (var t in _thTimers.values) {
+      t.cancel();
+    }
+    _thTimers.clear();
+    _mxLocks.clear();
   }
 }
