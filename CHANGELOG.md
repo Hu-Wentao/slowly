@@ -1,3 +1,7 @@
+## 0.4.2 2026-03-03
+* fix: optimize stack traces for mutex, throttle, and debounce by using FutureOr
+* fix: avoid Completer hanging on error in debounce
+
 ## 0.4.1 2026-03-03
 * chore: remove flutter dependency, transform to pure dart package
 

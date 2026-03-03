@@ -11,17 +11,26 @@ class Slowly<T> {
 
   /// [mutex] 互斥锁 (Exhaust): 立即执行，执行期间的触发直接丢弃。
   /// 解决异步任务重叠问题。
-  Future<R?> mutex<R>(T tag, FutureOr<R> Function() action) async {
+  FutureOr<R?> mutex<R>(T tag, FutureOr<R> Function() action) {
     if (_mxLocks.contains(tag)) return null;
     _mxLocks.add(tag);
     try {
-      final result = action();
-      if (result is Future<R>) {
-        return await result;
+      final rst = action();
+      if (rst == null || rst is R) {
+        _mxLocks.remove(tag);
+        return rst;
+      } else if (rst is Future<R> ||
+          rst is Future<R?> ||
+          rst is FutureOr<R> ||
+          rst is FutureOr<R?>) {
+        return rst.whenComplete(() => _mxLocks.remove(tag));
+      } else {
+        _mxLocks.remove(tag);
+        return rst;
       }
-      return result;
-    } finally {
+    } catch (e) {
       _mxLocks.remove(tag);
+      rethrow;
     }
   }
 
@@ -41,12 +50,12 @@ class Slowly<T> {
 
     final completer = _deCompleters[tag] ??= Completer<R?>();
 
-    void execute() async {
+    void execute() {
       _deTimers.remove(tag)?.cancel();
       _deFirstCalls.remove(tag);
       final cm = _deCompleters.remove(tag);
       if (cm != null && !cm.isCompleted) {
-        cm.complete(await mutex(tag, action));
+        cm.complete(mutex<R>(tag, action));
       }
     }
 
@@ -69,21 +78,21 @@ class Slowly<T> {
 
   /// [throttle] 节流: 固定频率执行。
   /// 配合 [mutex] 解决异步任务重叠问题：如果周期到了但上次任务还没跑完，跳过。
-  Future<R?> throttle<R>(
+  FutureOr<R?> throttle<R>(
     T tag,
     FutureOr<R> Function() action, {
     required Duration duration,
     bool ensureLast = false,
-  }) async {
+  }) {
     if (_thTimers.containsKey(tag) || _mxLocks.contains(tag)) {
       if (ensureLast) {
-        return debounce(tag, action, duration: duration);
+        return debounce<R>(tag, action, duration: duration);
       }
       return null;
     }
 
     _thTimers[tag] = Timer(duration, () => _thTimers.remove(tag));
-    return mutex(tag, action);
+    return mutex<R>(tag, action);
   }
 
   /// 检查是否正在执行 mutex 任务
