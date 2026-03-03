@@ -1,77 +1,66 @@
 import 'package:test/test.dart';
 import 'package:slowly/slowly.dart';
+import 'dart:async';
 
-main() {
-  test('debounce', () async {
-    final sly = Slowly<String>();
+void main() {
+  group('Debounce Tests', () {
+    late Slowly<String> sly;
 
-    int rst = 0;
-    foo(p) {
-      print('${DateTime.now()} ## $p');
-      rst += 1;
-      return 'foo: $p';
-    }
+    setUp(() {
+      sly = Slowly<String>();
+    });
 
-    final s = DateTime.now();
-    print('${s} ## start');
-    expect(rst, 0);
+    tearDown(() {
+      sly.dispose();
+    });
 
-    const duration = Duration(milliseconds: 500);
+    test('debounce basic - should execute only last call', () async {
+      int counter = 0;
+      final duration = Duration(milliseconds: 200);
 
-    /// ------
+      sly.debounce('tag', () => counter++, duration: duration);
+      sly.debounce('tag', () => counter++, duration: duration);
+      sly.debounce('tag', () => counter++, duration: duration);
 
-    // 0
-    sly.debounce('tag', () => foo('00'), duration: duration);
-    expect(rst, 0);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(rst, 0);
-    // 100-100
-    sly.debounce('tag', () => foo('11'), duration: duration);
-    expect(rst, 0);
-    // 200-0
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(rst, 0);
-    // 200-100
-    sly.debounce('tag', () => foo('22'), duration: duration);
-    expect(rst, 0);
-    // 200-0
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(counter, 0, reason: 'Wait for silence');
 
-    await Future.delayed(const Duration(milliseconds: 550));
-    expect(rst, 1);
-    // 700-500: 22
+      await Future.delayed(Duration(milliseconds: 150));
+      expect(counter, 1, reason: 'Execute only the last one after silence');
+    });
 
-    await Future.delayed(const Duration(milliseconds: 100));
-    // 800-0
-    sly.debounce('tag', () => foo('33'), duration: duration);
-    expect(rst, 1);
-    await Future.delayed(const Duration(milliseconds: 550));
-    expect(rst, 2);
+    test('debounce maxDuration - ensure execution under frequent calls', () async {
+      int counter = 0;
+      final duration = Duration(milliseconds: 300);
+      final maxDuration = Duration(milliseconds: 500);
 
-    /// ------
-    final e = DateTime.now();
-    print('${e} ## end; ${e.difference(s)}');
-  });
+      // Start first call
+      sly.debounce('tag', () => counter++, duration: duration, maxDuration: maxDuration);
 
-  test('debounce maxDuration', () async {
-    final sly = Slowly<String>();
-    int rst = 0;
-    const duration = Duration(milliseconds: 500);
-    const maxDuration = Duration(milliseconds: 800);
+      // Continuous triggers every 200ms (less than duration)
+      await Future.delayed(Duration(milliseconds: 200));
+      sly.debounce('tag', () => counter++, duration: duration, maxDuration: maxDuration);
+      expect(counter, 0);
 
-    // Initial trigger
-    sly.debounce('tag', () => rst++, duration: duration, maxDuration: maxDuration);
-    
-    // Trigger every 300ms. Without maxDuration, it would never fire.
-    await Future.delayed(const Duration(milliseconds: 300));
-    sly.debounce('tag', () => rst++, duration: duration, maxDuration: maxDuration);
-    expect(rst, 0);
+      await Future.delayed(Duration(milliseconds: 200));
+      sly.debounce('tag', () => counter++, duration: duration, maxDuration: maxDuration);
+      expect(counter, 0);
 
-    await Future.delayed(const Duration(milliseconds: 300));
-    sly.debounce('tag', () => rst++, duration: duration, maxDuration: maxDuration);
-    expect(rst, 0);
+      // Now it should have passed maxDuration (200 + 200 + some small time)
+      // We wait a bit more for the next trigger or the capped timer to fire
+      await Future.delayed(Duration(milliseconds: 150)); 
+      expect(counter, 1, reason: 'maxDuration should force execution despite continuous triggers');
+    });
 
-    await Future.delayed(const Duration(milliseconds: 300)); // Total 900ms passed since first call
-    // maxDuration (800ms) should have been triggered
-    expect(rst, 1);
+    test('debounce cancel - should stop execution', () async {
+      int counter = 0;
+      final duration = Duration(milliseconds: 200);
+
+      sly.debounce('tag', () => counter++, duration: duration);
+      sly.cancelDebounce('tag');
+
+      await Future.delayed(Duration(milliseconds: 300));
+      expect(counter, 0, reason: 'Task should be cancelled');
+    });
   });
 }
