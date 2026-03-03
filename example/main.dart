@@ -1,33 +1,54 @@
 import 'package:slowly/slowly.dart';
 
-main() async {
-  /// <String>: tag type
+void main() async {
   final sly = Slowly<String>();
 
   foo() {
-    print('foo func');
-    return 'foo!';
+    print('Executing foo...');
+    return 'result of foo';
   }
 
-  /// debounce
-  /// need 'await'
-  final fnFoo = await sly.debounce(
-    'foo',
-    foo,
-    duration: const Duration(milliseconds: 100),
-  );
-  if (fnFoo == null) return; // if locked, fnFoo will be null
-  final r = fnFoo();
-  print('debounce result: $r');
+  print('--- Debounce Example ---');
+  // Debounce will wait for 500ms of silence before executing.
+  // We call it multiple times, but only the last one will execute.
+  for (int i = 0; i < 5; i++) {
+    print('Calling debounce $i');
+    sly
+        .debounce(
+      'my-tag',
+      foo,
+      duration: const Duration(milliseconds: 500),
+      // maxDuration ensures it executes even if calls keep coming.
+      maxDuration: const Duration(seconds: 2),
+    )
+        .then((result) {
+      if (result != null) {
+        print('Debounce finished: $result');
+      }
+    });
+    await Future.delayed(const Duration(milliseconds: 100));
+  }
 
-  /// throttle
-  /// not need 'await'
-  final fnFoo2 = sly.throttle(
-    'bar',
-    foo,
-    duration: const Duration(milliseconds: 100),
-  );
-  if (fnFoo2 == null) return; // if locked, fnFoo will be null
-  final r2 = fnFoo2();
-  print('throttle result: $r2');
+  await Future.delayed(const Duration(seconds: 1));
+
+  print('\n--- Throttle Example ---');
+  // Throttle will execute immediately and then ignore subsequent calls for 1 second.
+  for (int i = 0; i < 5; i++) {
+    print('Calling throttle $i');
+    final result = await sly.throttle(
+      'my-throttle-tag',
+      foo,
+      duration: const Duration(seconds: 1),
+      ensureLast: true, // This will ensure the last call eventually runs.
+    );
+    if (result != null) {
+      print('Throttle result: $result');
+    }
+    await Future.delayed(const Duration(milliseconds: 200));
+  }
+
+  // Wait for the ensureLast (debounce) to fire.
+  await Future.delayed(const Duration(seconds: 2));
+
+  sly.dispose();
 }
