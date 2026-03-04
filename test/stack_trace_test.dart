@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:test/test.dart';
-import '../lib/src/slowly.dart';
+import 'package:slowly/slowly.dart';
 
 void main() {
   final slowly = Slowly<String>();

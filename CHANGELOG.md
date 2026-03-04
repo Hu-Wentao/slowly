@@ -1,3 +1,8 @@
+## 0.4.4 2026-03-04
+* doc: update README and example for better clarity and accessibility
+* feat: add internationalization support (README_zh.md)
+* chore: fix lint issues in tests
+
 ## 0.4.3 2026-03-04
 * fix: FutureOr check
 
