@@ -1,4 +1,6 @@
-# Slowly [English](./README.md)
+# Slowly
+
+[English](./README.md)
 
 一个轻量级的 Dart 工具类，用于管理多个防抖 (Debounce)、节流 (Throttle) 和互斥锁 (Mutex) 实例。非常适合处理频繁的用户输入、限制高开销的 API 调用以及防止异步任务重叠。
 

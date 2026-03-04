@@ -1,4 +1,6 @@
-# Slowly [简体中文](./README_zh.md)
+# Slowly
+
+[简体中文](./README_zh.md)
 
 A lightweight Dart utility for managing multiple debounce, throttle, and mutex (mutual exclusion) instances. Perfect for handling rapid user input, limiting expensive API calls, and preventing overlapping asynchronous tasks.
 
