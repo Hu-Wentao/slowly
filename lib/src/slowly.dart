@@ -16,17 +16,11 @@ class Slowly<T> {
     _mxLocks.add(tag);
     try {
       final rst = action();
-      if (rst == null || rst is R) {
+      if (rst is R?) {
         _mxLocks.remove(tag);
         return rst;
-      } else if (rst is Future<R> ||
-          rst is Future<R?> ||
-          rst is FutureOr<R> ||
-          rst is FutureOr<R?>) {
-        return rst.whenComplete(() => _mxLocks.remove(tag));
       } else {
-        _mxLocks.remove(tag);
-        return rst;
+        return rst.whenComplete(() => _mxLocks.remove(tag));
       }
     } catch (e) {
       _mxLocks.remove(tag);
