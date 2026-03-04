@@ -1,3 +1,6 @@
+## 0.4.3 2026-03-03
+* fix: FutureOr check
+
 ## 0.4.2 2026-03-03
 * fix: optimize stack traces for mutex, throttle, and debounce by using FutureOr
 * fix: avoid Completer hanging on error in debounce
